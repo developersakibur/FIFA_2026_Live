@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIFA বিশ্বকাপ ২০২৬ — লাইভ ব্র্যাকেট</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --pitch: #0a3d1f;
+  --pitch-mid: #0f5c2e;
+  --pitch-light: #1a7a3f;
+  --gold: #f0b429;
+  --gold-dim: #c8941a;
+  --white: #f5f5f0;
+  --muted: #8a9a8e;
+  --card-bg: #0d2b16;
+  --card-border: #1e4d2b;
+  --red: #e03535;
+  --win-bg: #0f4d22;
+  --win-border: #2ecc71;
+  --loss-bg: #2b0d0d;
+  --loss-border: #c0392b;
+  --pending-bg: #1a2e1e;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--pitch);
+  color: var(--white);
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+}
+.bn { font-family: 'Tiro Bangla', serif; }
+
+/* HEADER */
+.site-header {
+  background: linear-gradient(180deg, #000 0%, var(--pitch) 100%);
+  border-bottom: 2px solid var(--gold);
+  padding: 18px 0 14px;
+  text-align: center;
+  position: sticky; top: 0; z-index: 100;
+}
+.site-header h1 {
+  font-size: clamp(1.1rem, 3vw, 1.6rem);
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.site-header p { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+.live-dot {
+  display: inline-block; width: 8px; height: 8px;
+  background: #2ecc71; border-radius: 50%;
+  animation: pulse 1.2s ease-in-out infinite;
+  margin-right: 5px;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* TABS */
+.tab-bar {
+  display: flex; gap: 0;
+  background: #000;
+  border-bottom: 1px solid var(--card-border);
+  overflow-x: auto;
+}
+.tab-btn {
+  flex: 1; min-width: 100px;
+  padding: 11px 16px;
+  background: none; border: none;
+  color: var(--muted);
+  font-size: .82rem; font-weight: 600;
+  cursor: pointer; white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: all .2s;
+}
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab-btn:hover:not(.active) { color: var(--white); }
+
+/* CONTENT */
+.tab-content { display: none; padding: 20px 16px 60px; }
+.tab-content.active { display: block; }
+
+/* GROUP CARDS */
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.group-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.group-header {
+  background: var(--pitch-mid);
+  padding: 8px 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.group-letter {
+  background: var(--gold);
+  color: #000;
+  font-weight: 900; font-size: .85rem;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.group-header h3 { font-size: .85rem; font-weight: 700; }
+
+/* STANDINGS TABLE */
+.standings { width: 100%; border-collapse: collapse; font-size: .75rem; }
+.standings th {
+  background: #0a2010;
+  color: var(--muted);
+  padding: 5px 8px;
+  text-align: center; font-weight: 600;
+}
+.standings th:first-child { text-align: left; }
+.standings td { padding: 6px 8px; text-align: center; border-bottom: 1px solid #1a3520; }
+.standings td:first-child { text-align: left; }
+.standings tr:last-child td { border-bottom: none; }
+.standings tr.qualified td { background: rgba(46,204,113,.08); }
+.standings tr.maybe td { background: rgba(240,180,41,.05); }
+.team-name-cell { display: flex; align-items: center; gap: 6px; }
+.pos-badge {
+  width: 18px; height: 18px; border-radius: 50%;
+  font-size: .65rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.pos-1 { background: var(--gold); color: #000; }
+.pos-2 { background: var(--pitch-light); color: #fff; }
+.pos-3 { background: #333; color: #aaa; }
+.pos-4 { background: #1a0505; color: #c0392b; }
+
+/* MATCHES */
+.matches-section { padding: 10px 12px; }
+.match-row {
+  display: flex; align-items: center;
+  gap: 6px; padding: 6px 0;
+  border-bottom: 1px solid #1a3520;
+  font-size: .76rem;
+}
+.match-row:last-child { border-bottom: none; }
+.match-team {
+  flex: 1; text-align: right;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px; border-radius: 4px;
+  transition: background .15s;
+}
+.match-team.right { text-align: left; }
+.match-team:hover { background: rgba(240,180,41,.15); }
+.match-team.winner { background: var(--win-bg); color: #2ecc71; }
+.match-team.loser { background: var(--loss-bg); color: #666; }
+.match-vs {
+  font-size: .7rem; color: var(--muted);
+  min-width: 30px; text-align: center;
+}
+.match-score {
+  font-weight: 700; color: var(--gold); font-size: .8rem;
+}
+.match-time { font-size: .65rem; color: var(--muted); }
+
+/* KNOCKOUT BRACKET */
+.bracket-wrapper { overflow-x: auto; padding-bottom: 10px; }
+.bracket {
+  display: flex; gap: 0; min-width: 900px;
+  align-items: stretch;
+}
+.bracket-round {
+  flex: 1;
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+.round-title {
+  text-align: center;
+  font-size: .7rem; font-weight: 700;
+  color: var(--gold);
+  padding: 6px 4px;
+  background: #000;
+  border-bottom: 1px solid var(--card-border);
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.round-matches {
+  flex: 1;
+  display: flex; flex-direction: column;
+  justify-content: space-around;
+  padding: 8px 4px;
+  gap: 8px;
+}
+.ko-match {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 140px;
+}
+.ko-team {
+  padding: 7px 10px;
+  font-size: .75rem; font-weight: 600;
+  cursor: pointer;
+  border-bottom: 1px solid var(--card-border);
+  transition: background .15s;
+  display: flex; align-items: center; gap: 5px;
+}
+.ko-team:last-child { border-bottom: none; }
+.ko-team:hover:not(.tbd) { background: rgba(240,180,41,.12); }
+.ko-team.winner { background: var(--win-bg); color: #2ecc71; }
+.ko-team.loser { color: #444; }
+.ko-team.tbd { color: #444; cursor: default; font-style: italic; font-size: .7rem; }
+.ko-match-info {
+  background: #000;
+  padding: 2px 6px;
+  font-size: .6rem; color: var(--muted);
+  text-align: center;
+}
+
+/* SCHEDULE */
+.schedule-filters {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.filter-btn {
+  padding: 5px 12px;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  color: var(--muted); border-radius: 20px;
+  font-size: .75rem; cursor: pointer;
+  transition: all .15s;
+}
+.filter-btn.active, .filter-btn:hover {
+  background: var(--pitch-mid); border-color: var(--gold); color: var(--white);
+}
+.schedule-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+.schedule-table th {
+  background: #000; color: var(--gold);
+  padding: 8px 10px; text-align: left;
+  font-weight: 700; font-size: .72rem;
+  text-transform: uppercase; letter-spacing: .5px;
+  position: sticky; top: 0;
+}
+.schedule-table td { padding: 8px 10px; border-bottom: 1px solid var(--card-border); }
+.schedule-table tr:hover td { background: rgba(255,255,255,.03); }
+.status-badge {
+  display: inline-block; padding: 2px 8px;
+  border-radius: 10px; font-size: .65rem; font-weight: 700;
+}
+.status-FT { background: #1a3520; color: #2ecc71; }
+.status-LIVE { background: #3a1010; color: #e74c3c; animation: pulse 1s infinite; }
+.status-TBD, .status-SCHEDULED { background: #1a2030; color: #5d8aa8; }
+
+/* LOADING */
+.loading {
+  text-align: center; padding: 60px 20px;
+  color: var(--muted);
+}
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--card-border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+  margin: 0 auto 12px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* TOAST */
+.toast-wrap {
+  position: fixed; bottom: 20px; right: 20px; z-index: 999;
+}
+.toast-msg {
+  background: var(--pitch-mid); border: 1px solid var(--gold);
+  color: var(--white); padding: 10px 16px;
+  border-radius: 8px; font-size: .8rem;
+  animation: slideIn .3s ease;
+}
+@keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.section-title {
+  font-size: .9rem; font-weight: 700;
+  color: var(--gold); margin: 20px 0 12px;
+  text-transform: uppercase; letter-spacing: 1px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-title::after {
+  content: ''; flex: 1; height: 1px; background: var(--card-border);
+}
+
+.reset-btn {
+  background: none; border: 1px solid #c0392b;
+  color: #c0392b; padding: 5px 14px;
+  border-radius: 6px; font-size: .75rem;
+  cursor: pointer; transition: all .15s;
+}
+.reset-btn:hover { background: #c0392b; color: #fff; }
+
+.champion-display {
+  text-align: center; padding: 30px;
+  background: linear-gradient(135deg, #0a2010, #1a4020);
+  border: 2px solid var(--gold);
+  border-radius: 12px; margin: 20px 0;
+}
+.champion-display .trophy { font-size: 3rem; }
+.champion-display h2 { color: var(--gold); font-size: 1.4rem; margin: 8px 0 4px; }
+
+@media (max-width: 600px) {
+  .groups-grid { grid-template-columns: 1fr; }
+  .tab-btn { font-size: .75rem; padding: 10px 10px; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <h1>⚽ FIFA বিশ্বকাপ ২০২৬</h1>
+  <p><span class="live-dot"></span>লাইভ ব্র্যাকেট • বাংলাদেশ সময় (GMT+6)</p>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active bn" onclick="showTab('groups')">গ্রুপ পর্যায়</button>
+  <button class="tab-btn active bn" onclick="showTab('groups')" style="display:none"></button>
+  <button class="tab-btn bn" onclick="showTab('knockout')">নকআউট</button>
+  <button class="tab-btn bn" onclick="showTab('schedule')">শিডিউল</button>
+  <button class="tab-btn bn" onclick="showTab('about')">তথ্য</button>
+</div>
+
+<!-- TAB: GROUPS -->
+<div id="tab-groups" class="tab-content active">
+  <div id="groups-loading" class="loading">
+    <div class="spinner"></div>
+    <p class="bn">ডেটা লোড হচ্ছে...</p>
+  </div>
+  <div id="groups-content" style="display:none">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+      <p class="bn" style="font-size:.78rem; color:var(--muted);">দলে ক্লিক করে জয়ী বেছে নিন — ডেটা সেভ থাকবে</p>
+      <button class="reset-btn bn" onclick="resetAll()">🗑 রিসেট করুন</button>
+    </div>
+    <div id="groups-grid" class="groups-grid"></div>
+  </div>
+</div>
+
+<!-- TAB: KNOCKOUT -->
+<div id="tab-knockout" class="tab-content">
+  <div id="ko-loading" class="loading">
+    <div class="spinner"></div>
+    <p class="bn">লোড হচ্ছে...</p>
+  </div>
+  <div id="ko-content" style="display:none">
+    <div id="champion-box" style="display:none"></div>
+    <div id="bracket-container"></div>
+  </div>
+</div>
+
+<!-- TAB: SCHEDULE -->
+<div id="tab-schedule" class="tab-content">
+  <div id="sched-loading" class="loading">
+    <div class="spinner"></div>
+    <p class="bn">লোড হচ্ছে...</p>
+  </div>
+  <div id="sched-content" style="display:none">
+    <div class="schedule-filters" id="stage-filters"></div>
+    <div style="overflow-x:auto">
+      <table class="schedule-table">
+        <thead>
+          <tr>
+            <th class="bn">তারিখ</th>
+            <th class="bn">সময় (BD)</th>
+            <th class="bn">দল</th>
+            <th class="bn">স্কোর</th>
+            <th class="bn">গ্রুপ</th>
+            <th class="bn">অবস্থা</th>
+          </tr>
+        </thead>
+        <tbody id="schedule-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: ABOUT -->
+<div id="tab-about" class="tab-content">
+  <div style="max-width:600px; margin:0 auto">
+    <div class="section-title bn">বিশ্বকাপ ২০২৬ তথ্য</div>
+    <div style="display:grid; gap:12px;">
+      <div class="group-card" style="padding:16px">
+        <div style="color:var(--gold); font-weight:700; margin-bottom:8px">📊 ফরম্যাট</div>
+        <div style="font-size:.82rem; line-height:1.8; color:#ccc" class="bn">
+          ৪৮টি দেশ → ১২টি গ্রুপ → প্রতি গ্রুপে ৪টি দল<br>
+          Top 2 + সেরা ৮ তৃতীয় দল → Round of 32<br>
+          তারপর সরাসরি নকআউট → ফাইনাল<br>
+          মোট ১০৪টি ম্যাচ
+        </div>
+      </div>
+      <div class="group-card" style="padding:16px">
+        <div style="color:var(--gold); font-weight:700; margin-bottom:8px">🏟️ ভেন্যু</div>
+        <div style="font-size:.82rem; line-height:1.8; color:#ccc" class="bn">
+          USA 🇺🇸 · Canada 🇨🇦 · Mexico 🇲🇽<br>
+          ১১ জুন – ১৯ জুলাই ২০২৬
+        </div>
+      </div>
+      <div class="group-card" style="padding:16px">
+        <div style="color:var(--gold); font-weight:700; margin-bottom:8px">📺 বাংলাদেশে দেখুন</div>
+        <div style="font-size:.82rem; line-height:1.8; color:#ccc" class="bn">
+          T Sports · BTV · Bioscope (GP) · Toffee (Banglalink)
+        </div>
+      </div>
+      <div class="group-card" style="padding:16px">
+        <div style="color:var(--gold); font-weight:700; margin-bottom:8px">⚙️ এই অ্যাপ সম্পর্কে</div>
+        <div style="font-size:.82rem; line-height:1.8; color:#ccc" class="bn">
+          ডেটা আসে football-data.org থেকে<br>
+          তোমার সিলেকশন ব্রাউজারে সেভ থাকে (LocalStorage)<br>
+          পেজ বন্ধ করলেও ডেটা থাকবে
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+const API_TOKEN = 'ec2f328b2b9b4fa5b5e31b7707b7ce83';
+const API_BASE = 'https://api.football-data.org/v4';
+const LS_KEY = 'wc2026_picks';
+const LS_DATA = 'wc2026_apidata';
+const LS_TIME = 'wc2026_fetchtime';
+const CACHE_MIN = 5; // minutes
+
+// ===== STATE =====
+let allMatches = [];
+let picks = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+
+// ===== TAB =====
+const tabs = ['groups','knockout','schedule','about'];
+function showTab(name) {
+  tabs.forEach(t => {
+    document.getElementById('tab-'+t)?.classList.toggle('active', t===name);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b,i) => {
+    b.classList.toggle('active', tabs[i]===name);
+  });
+  if (name==='knockout') renderKnockout();
+  if (name==='schedule') renderSchedule();
+}
+// fix tab buttons
+document.addEventListener('DOMContentLoaded', () => {
+  const bar = document.querySelector('.tab-bar');
+  bar.innerHTML = '';
+  ['গ্রুপ পর্যায়','নকআউট','শিডিউল','তথ্য'].forEach((label,i) => {
+    const b = document.createElement('button');
+    b.className = 'tab-btn bn' + (i===0?' active':'');
+    b.textContent = label;
+    b.onclick = () => showTab(tabs[i]);
+    bar.appendChild(b);
+  });
+});
+
+// ===== API FETCH =====
+async function fetchMatches() {
+  const cached = localStorage.getItem(LS_DATA);
+  const fetchTime = localStorage.getItem(LS_TIME);
+  const now = Date.now();
+  if (cached && fetchTime && (now - parseInt(fetchTime)) < CACHE_MIN * 60000) {
+    allMatches = JSON.parse(cached);
+    return;
+  }
+  try {
+    const apiUrl = `${API_BASE}/competitions/WC/matches`;
+    const resp = await fetch(`https://corsproxy.io/?url=${encodeURIComponent(apiUrl)}`, {
+      headers: { 'X-Auth-Token': API_TOKEN }
+    });
+    const data = await resp.json();
+    if (data.errorCode || data.message) throw new Error(data.message || 'API Error');
+    allMatches = data.matches || [];
+    localStorage.setItem(LS_DATA, JSON.stringify(allMatches));
+    localStorage.setItem(LS_TIME, now.toString());
+  } catch(e) {
+    const cached2 = localStorage.getItem(LS_DATA);
+    if (cached2) allMatches = JSON.parse(cached2);
+    else throw e;
+  }
+}
+
+// ===== TIME CONVERT =====
+function toBDTime(utcStr) {
+  if (!utcStr) return '—';
+  const d = new Date(utcStr);
+  const bd = new Date(d.getTime() + 6*60*60*1000);
+  const months = ['জানু','ফেব্রু','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টে','অক্টো','নভে','ডিসে'];
+  const days = ['রবি','সোম','মঙ্গল','বুধ','বৃহস্পতি','শুক্র','শনি'];
+  const day = days[bd.getUTCDay()];
+  const date = bd.getUTCDate();
+  const month = months[bd.getUTCMonth()];
+  let h = bd.getUTCHours(), m = bd.getUTCMinutes();
+  const ampm = h >= 12 ? 'রাত' : 'সকাল';
+  if (h === 0) { h = 12; }
+  else if (h > 12) { h -= 12; }
+  const hStr = h.toString();
+  const mStr = m.toString().padStart(2,'0');
+  return { date: `${day} ${date} ${month}`, time: `${ampm} ${hStr}:${mStr}` };
+}
+
+function toBDShort(utcStr) {
+  if (!utcStr) return '—';
+  const t = toBDTime(utcStr);
+  return `${t.date} • ${t.time}`;
+}
+
+// ===== GROUPS =====
+function getGroups() {
+  const groups = {};
+  allMatches.filter(m => m.stage === 'GROUP_STAGE').forEach(m => {
+    const g = m.group || 'Unknown';
+    if (!groups[g]) groups[g] = { teams: new Set(), matches: [] };
+    groups[g].teams.add(m.homeTeam.name);
+    groups[g].teams.add(m.awayTeam.name);
+    groups[g].matches.push(m);
+  });
+  return groups;
+}
+
+function calcStandings(teams, matches) {
+  const table = {};
+  teams.forEach(t => table[t] = { name: t, played:0, won:0, drawn:0, lost:0, gf:0, ga:0, pts:0 });
+
+  matches.forEach(m => {
+    const ht = m.homeTeam.name, at = m.awayTeam.name;
+    const score = m.score?.fullTime;
+    let hg = score?.home, ag = score?.away;
+
+    // use pick if no real score
+    if ((hg === null || hg === undefined) && picks[m.id]) {
+      const winner = picks[m.id];
+      hg = winner === ht ? 1 : 0;
+      ag = winner === at ? 1 : 0;
+    }
+
+    if (hg === null || hg === undefined || !table[ht] || !table[at]) return;
+
+    table[ht].played++; table[at].played++;
+    table[ht].gf += hg; table[ht].ga += ag;
+    table[at].gf += ag; table[at].ga += hg;
+
+    if (hg > ag) {
+      table[ht].won++; table[ht].pts += 3;
+      table[at].lost++;
+    } else if (hg < ag) {
+      table[at].won++; table[at].pts += 3;
+      table[ht].lost++;
+    } else {
+      table[ht].drawn++; table[ht].pts++;
+      table[at].drawn++; table[at].pts++;
+    }
+  });
+
+  return Object.values(table).sort((a,b) =>
+    b.pts - a.pts || (b.gf-b.ga) - (a.gf-a.ga) || b.gf - a.gf
+  );
+}
+
+function getWinner(match) {
+  const score = match.score?.fullTime;
+  const hg = score?.home, ag = score?.away;
+  if (hg !== null && hg !== undefined && ag !== null && ag !== undefined) {
+    if (hg > ag) return match.homeTeam.name;
+    if (ag > hg) return match.awayTeam.name;
+    return null;
+  }
+  return picks[match.id] || null;
+}
+
+function flagEmoji(name) {
+  const flags = {
+    'Mexico':'🇲🇽','South Korea':'🇰🇷','South Africa':'🇿🇦','Czechia':'🇨🇿',
+    'Canada':'🇨🇦','Switzerland':'🇨🇭','Qatar':'🇶🇦','Bosnia and Herzegovina':'🇧🇦',
+    'Brazil':'🇧🇷','Morocco':'🇲🇦','Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Haiti':'🇭🇹',
+    'United States':'🇺🇸','Australia':'🇦🇺','Paraguay':'🇵🇾','Turkey':'🇹🇷',
+    'Germany':'🇩🇪','Ecuador':'🇪🇨','Ivory Coast':'🇨🇮','Curaçao':'🇨🇼',
+    'Netherlands':'🇳🇱','Japan':'🇯🇵','Tunisia':'🇹🇳','Sweden':'🇸🇪',
+    'Belgium':'🇧🇪','IR Iran':'🇮🇷','Egypt':'🇪🇬','New Zealand':'🇳🇿',
+    'Spain':'🇪🇸','Uruguay':'🇺🇾','Saudi Arabia':'🇸🇦','Cape Verde':'🇨🇻',
+    'France':'🇫🇷','Senegal':'🇸🇳','Norway':'🇳🇴','Iraq':'🇮🇶',
+    'Argentina':'🇦🇷','Algeria':'🇩🇿','Austria':'🇦🇹','Jordan':'🇯🇴',
+    'Portugal':'🇵🇹','Colombia':'🇨🇴','Uzbekistan':'🇺🇿','DR Congo':'🇨🇩',
+    'England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Croatia':'🇭🇷','Panama':'🇵🇦','Ghana':'🇬🇭',
+  };
+  return flags[name] || '🏳️';
+}
+
+function teamDisplay(name) {
+  return `${flagEmoji(name)} ${name}`;
+}
+
+function renderGroups() {
+  const grid = document.getElementById('groups-grid');
+  const groups = getGroups();
+  const letters = Object.keys(groups).sort();
+
+  grid.innerHTML = letters.map(gKey => {
+    const g = groups[gKey];
+    const teams = [...g.teams];
+    const standings = calcStandings(teams, g.matches);
+    const letter = gKey.replace('GROUP_','');
+
+    const standingRows = standings.map((t,i) => {
+      const cls = i < 2 ? 'qualified' : i === 2 ? 'maybe' : '';
+      const posCls = `pos-${i+1}`;
+      return `<tr class="${cls}">
+        <td><div class="team-name-cell">
+          <span class="pos-badge ${posCls}">${i+1}</span>
+          <span>${flagEmoji(t.name)} ${t.name}</span>
+        </div></td>
+        <td>${t.played}</td>
+        <td>${t.won}</td>
+        <td>${t.drawn}</td>
+        <td>${t.lost}</td>
+        <td>${t.gf}:${t.ga}</td>
+        <td><strong style="color:var(--gold)">${t.pts}</strong></td>
+      </tr>`;
+    }).join('');
+
+    const matchRows = g.matches.map(m => {
+      const winner = getWinner(m);
+      const ht = m.homeTeam.name, at = m.awayTeam.name;
+      const score = m.score?.fullTime;
+      const hasReal = score?.home !== null && score?.home !== undefined;
+      const hCls = winner === ht ? 'winner' : (winner && winner !== ht ? 'loser' : '');
+      const aCls = winner === at ? 'winner' : (winner && winner !== at ? 'loser' : '');
+      const bd = toBDTime(m.utcDate);
+      const scoreStr = hasReal ? `${score.home}–${score.away}` : (winner ? '✓' : 'vs');
+
+      return `<div class="match-row">
+        <span class="match-team ${hCls}" onclick="setPick(${m.id},'${ht.replace(/'/g,"\\'")}','${at.replace(/'/g,"\\'")}',event)">${flagEmoji(ht)} ${ht}</span>
+        <span class="match-vs match-score">${scoreStr}</span>
+        <span class="match-team right ${aCls}" onclick="setPick(${m.id},'${at.replace(/'/g,"\\'")}','${ht.replace(/'/g,"\\'")}',event)">${flagEmoji(at)} ${at}</span>
+      </div>
+      <div style="text-align:center; font-size:.62rem; color:var(--muted); padding-bottom:2px">${bd?.date || ''} • ${bd?.time || ''}</div>`;
+    }).join('');
+
+    return `<div class="group-card">
+      <div class="group-header">
+        <div class="group-letter">${letter}</div>
+        <h3>গ্রুপ ${letter}</h3>
+      </div>
+      <table class="standings">
+        <thead><tr>
+          <th>দল</th><th>খে</th><th>জ</th><th>ড্র</th><th>হা</th><th>গো</th><th>পয়</th>
+        </tr></thead>
+        <tbody>${standingRows}</tbody>
+      </table>
+      <div class="matches-section">${matchRows}</div>
+    </div>`;
+  }).join('');
+}
+
+function setPick(matchId, winner, loser, evt) {
+  if (picks[matchId] === winner) {
+    delete picks[matchId];
+    showToast(`${winner} সিলেকশন বাতিল`);
+  } else {
+    picks[matchId] = winner;
+    showToast(`✅ ${flagEmoji(winner)} ${winner} জয়ী নির্বাচিত`);
+  }
+  savePicks();
+  renderGroups();
+  // re-render knockout if open
+  if (document.getElementById('tab-knockout').classList.contains('active')) renderKnockout();
+}
+
+function savePicks() {
+  localStorage.setItem(LS_KEY, JSON.stringify(picks));
+}
+
+function resetAll() {
+  if (!confirm('সব সিলেকশন মুছে ফেলবেন?')) return;
+  picks = {};
+  savePicks();
+  renderGroups();
+  renderKnockout();
+  showToast('🗑 সব রিসেট হয়েছে');
+}
+
+// ===== KNOCKOUT =====
+function getKOMatches(stage) {
+  return allMatches.filter(m => m.stage === stage)
+    .sort((a,b) => new Date(a.utcDate) - new Date(b.utcDate));
+}
+
+function getKOWinner(match) {
+  if (!match) return null;
+  const score = match.score?.fullTime;
+  const hg = score?.home, ag = score?.away;
+  if (hg !== null && hg !== undefined && ag !== null && ag !== undefined && hg !== ag) {
+    return hg > ag ? match.homeTeam.name : match.awayTeam.name;
+  }
+  // extra time / penalties
+  const et = match.score?.extraTime;
+  if (et?.home !== null && et?.home !== undefined && et?.home !== et?.away) {
+    return et.home > et.away ? match.homeTeam.name : match.awayTeam.name;
+  }
+  const pen = match.score?.penalties;
+  if (pen?.home !== null && pen?.home !== undefined) {
+    return pen.home > pen.away ? match.homeTeam.name : match.awayTeam.name;
+  }
+  return picks[match.id] || null;
+}
+
+function renderKOMatch(match, roundName) {
+  if (!match) return '<div class="ko-match"><div class="ko-team tbd">TBD</div><div class="ko-team tbd">TBD</div></div>';
+  const ht = match.homeTeam?.name || 'TBD';
+  const at = match.awayTeam?.name || 'TBD';
+  const isTBD = ht === 'TBD' || at === 'TBD';
+  const winner = getKOWinner(match);
+  const bd = toBDTime(match.utcDate);
+  const hCls = winner === ht ? 'winner' : (winner && winner !== ht ? 'loser' : '');
+  const aCls = winner === at ? 'winner' : (winner && winner !== at ? 'loser' : '');
+  const clickH = isTBD ? '' : `onclick="setKOPick(${match.id},'${ht.replace(/'/g,"\\'")}','${at.replace(/'/g,"\\'")}',event)"`;
+  const clickA = isTBD ? '' : `onclick="setKOPick(${match.id},'${at.replace(/'/g,"\\'")}','${ht.replace(/'/g,"\\'")}',event)"`;
+
+  return `<div class="ko-match">
+    <div class="ko-match-info">${bd?.date || ''} • ${bd?.time || ''}</div>
+    <div class="ko-team ${ht==='TBD'?'tbd':hCls}" ${clickH}>${ht==='TBD'?'অপেক্ষায়...':teamDisplay(ht)}</div>
+    <div class="ko-team ${at==='TBD'?'tbd':aCls}" ${clickA}>${at==='TBD'?'অপেক্ষায়...':teamDisplay(at)}</div>
+  </div>`;
+}
+
+function setKOPick(matchId, winner, loser, evt) {
+  if (picks[matchId] === winner) {
+    delete picks[matchId];
+    showToast(`${winner} সিলেকশন বাতিল`);
+  } else {
+    picks[matchId] = winner;
+    showToast(`✅ ${flagEmoji(winner)} ${winner} পরের রাউন্ডে!`);
+  }
+  savePicks();
+  renderKnockout();
+}
+
+function renderKnockout() {
+  const stages = [
+    { key: 'LAST_32', label: 'Round of 32' },
+    { key: 'LAST_16', label: 'Round of 16' },
+    { key: 'QUARTER_FINALS', label: 'কোয়ার্টার ফাইনাল' },
+    { key: 'SEMI_FINALS', label: 'সেমিফাইনাল' },
+    { key: 'FINAL', label: '🏆 ফাইনাল' },
+  ];
+
+  const container = document.getElementById('bracket-container');
+  let html = '<div class="bracket-wrapper"><div class="bracket">';
+
+  stages.forEach(s => {
+    const matches = getKOMatches(s.key);
+    html += `<div class="bracket-round">
+      <div class="round-title">${s.label}</div>
+      <div class="round-matches">`;
+    if (matches.length === 0) {
+      html += `<div class="ko-match"><div class="ko-team tbd" style="text-align:center;padding:12px">এখনো নির্ধারিত হয়নি</div></div>`;
+    } else {
+      matches.forEach(m => { html += renderKOMatch(m, s.label); });
+    }
+    html += '</div></div>';
+  });
+
+  html += '</div></div>';
+  container.innerHTML = html;
+
+  // Champion
+  const finals = getKOMatches('FINAL');
+  const champion = finals.length ? getKOWinner(finals[0]) : null;
+  const champBox = document.getElementById('champion-box');
+  if (champion) {
+    champBox.style.display = 'block';
+    champBox.innerHTML = `<div class="champion-display">
+      <div class="trophy">🏆</div>
+      <h2>${flagEmoji(champion)} ${champion}</h2>
+      <p class="bn" style="color:var(--muted); font-size:.8rem">তোমার পছন্দের চ্যাম্পিয়ন</p>
+    </div>`;
+  } else {
+    champBox.style.display = 'none';
+  }
+
+  document.getElementById('ko-loading').style.display = 'none';
+  document.getElementById('ko-content').style.display = 'block';
+}
+
+// ===== SCHEDULE =====
+const stageLabels = {
+  'GROUP_STAGE':'গ্রুপ পর্যায়',
+  'LAST_32':'Round of 32',
+  'LAST_16':'Round of 16',
+  'QUARTER_FINALS':'কোয়ার্টার ফাইনাল',
+  'SEMI_FINALS':'সেমিফাইনাল',
+  'THIRD_PLACE':'তৃতীয় স্থান',
+  'FINAL':'ফাইনাল'
+};
+let activeFilter = 'ALL';
+
+function renderSchedule() {
+  const stages = [...new Set(allMatches.map(m => m.stage))];
+  const filterBar = document.getElementById('stage-filters');
+  filterBar.innerHTML = ['ALL', ...stages].map(s =>
+    `<button class="filter-btn${s===activeFilter?' active':''}" onclick="filterSched('${s}')">${s==='ALL'?'সব':stageLabels[s]||s}</button>`
+  ).join('');
+
+  const filtered = activeFilter === 'ALL' ? allMatches : allMatches.filter(m => m.stage === activeFilter);
+  const body = document.getElementById('schedule-body');
+  body.innerHTML = filtered.map(m => {
+    const bd = toBDTime(m.utcDate);
+    const score = m.score?.fullTime;
+    const hg = score?.home, ag = score?.away;
+    const hasScore = hg !== null && hg !== undefined;
+    const scoreStr = hasScore ? `<strong style="color:var(--gold)">${hg} – ${ag}</strong>` : '–';
+    const status = m.status === 'FINISHED' ? 'FT' : m.status === 'IN_PLAY' ? 'LIVE' : 'TBD';
+    const group = (m.group || m.stage || '').replace('GROUP_','');
+    return `<tr>
+      <td class="bn">${bd?.date || '—'}</td>
+      <td class="bn" style="color:var(--gold)">${bd?.time || '—'}</td>
+      <td>${teamDisplay(m.homeTeam?.name||'TBD')} <span style="color:var(--muted)">vs</span> ${teamDisplay(m.awayTeam?.name||'TBD')}</td>
+      <td>${scoreStr}</td>
+      <td style="color:var(--muted); font-size:.72rem">${group}</td>
+      <td><span class="status-badge status-${status}">${status}</span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('sched-loading').style.display = 'none';
+  document.getElementById('sched-content').style.display = 'block';
+}
+
+function filterSched(stage) {
+  activeFilter = stage;
+  renderSchedule();
+}
+
+// ===== TOAST =====
+function showToast(msg) {
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast-msg bn';
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
+// ===== INIT =====
+async function init() {
+  try {
+    await fetchMatches();
+    document.getElementById('groups-loading').style.display = 'none';
+    document.getElementById('groups-content').style.display = 'block';
+    renderGroups();
+  } catch(e) {
+    document.getElementById('groups-loading').innerHTML =
+      `<p class="bn" style="color:#e74c3c">⚠️ ডেটা লোড করা যায়নি। ইন্টারনেট চেক করুন।</p>
+       <p style="font-size:.75rem; color:var(--muted); margin-top:8px">${e.message}</p>`;
+  }
+}
+
+init();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
