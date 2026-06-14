@@ -403,22 +403,11 @@ function getKOWinner(m) {
 }
 
 let highlightedTeam = null;
+let groupsExpanded = {}; // track which groups are expanded
 
 function renderKnockout() {
-  const stageOrder = ['LAST_32','LAST_16','QUARTER_FINALS','SEMI_FINALS','FINAL'];
-  const stageLabelsKO = {
-    'LAST_32':'Round of 32','LAST_16':'Round of 16',
-    'QUARTER_FINALS':'Quarter Finals','SEMI_FINALS':'Semi Finals','FINAL':'Final'
-  };
-
-  // Build match data per stage
-  const stageMatches = {};
-  stageOrder.forEach(s => {
-    stageMatches[s] = allMatches.filter(m => m.stage===s).sort((a,b) => new Date(a.utcDate)-new Date(b.utcDate));
-  });
-
   // Champion box
-  const finals = stageMatches['FINAL'];
+  const finals = allMatches.filter(m => m.stage==='FINAL');
   const champion = finals.length ? getKOWinner(finals[0]) : null;
   const champBox = document.getElementById('champion-box');
   if (champion) {
@@ -429,151 +418,218 @@ function renderKnockout() {
       <h2>${img} ${champion.name}</h2>
       <p style="color:var(--muted);font-size:.8rem">World Champion 2026</p>
     </div>`;
-  } else { champBox.style.display='none'; }
+  } else { champBox.style.display = 'none'; }
 
-  // Build D3 vertical tree
+  // Render collapsible group section + KO tree
   const container = document.getElementById('tree-container');
   container.innerHTML = '';
+
+  // ---- GROUP STAGE SECTION (collapsible HTML) ----
+  const groupDiv = document.createElement('div');
+  groupDiv.style.cssText = 'margin-bottom:16px';
+
+  // Build groups from matches
+  const groupMap = {};
+  allMatches.filter(m => m.stage==='GROUP_STAGE').forEach(m => {
+    const g = (m.group||'').replace('GROUP_','');
+    if (!groupMap[g]) groupMap[g] = { teams: {}, matches: [] };
+    if (m.homeTeam?.name) groupMap[g].teams[m.homeTeam.name] = m.homeTeam;
+    if (m.awayTeam?.name) groupMap[g].teams[m.awayTeam.name] = m.awayTeam;
+    groupMap[g].matches.push(m);
+  });
+
+  const groupLetters = Object.keys(groupMap).sort();
+
+  // Section header
+  const secHeader = document.createElement('div');
+  secHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;cursor:pointer;padding:10px 14px;background:#000;border-radius:8px;border:1px solid #1e4d2b';
+  secHeader.innerHTML = `
+    <span style="font-weight:700;color:#f0b429;font-size:.85rem">⚽ GROUP STAGE — 48 Teams</span>
+    <span id="group-toggle-icon" style="color:#f0b429;font-size:1rem">${Object.values(groupsExpanded).some(v=>v) ? '▲ Collapse' : '▼ Expand All'}</span>`;
+  secHeader.onclick = () => {
+    const anyOpen = Object.values(groupsExpanded).some(v=>v);
+    groupLetters.forEach(g => groupsExpanded[g] = !anyOpen);
+    renderKnockout();
+  };
+  groupDiv.appendChild(secHeader);
+
+  // Group cards grid
+  const grid = document.createElement('div');
+  grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px';
+
+  groupLetters.forEach(g => {
+    const gData = groupMap[g];
+    const isOpen = !!groupsExpanded[g];
+
+    // Calc standings for this group
+    const table = {};
+    Object.keys(gData.teams).forEach(n => table[n] = { team: gData.teams[n], played:0, won:0, drawn:0, lost:0, gf:0, ga:0, pts:0 });
+    gData.matches.forEach(m => {
+      const ht = m.homeTeam?.name, at = m.awayTeam?.name;
+      const s = m.score?.fullTime;
+      if (s?.home===null||s?.home===undefined||!table[ht]||!table[at]) return;
+      table[ht].played++; table[at].played++;
+      table[ht].gf+=s.home; table[ht].ga+=s.away;
+      table[at].gf+=s.away; table[at].ga+=s.home;
+      if(s.home>s.away){table[ht].won++;table[ht].pts+=3;table[at].lost++;}
+      else if(s.home<s.away){table[at].won++;table[at].pts+=3;table[ht].lost++;}
+      else{table[ht].drawn++;table[ht].pts++;table[at].drawn++;table[at].pts++;}
+    });
+    const sorted = Object.values(table).sort((a,b)=>b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf);
+
+    const card = document.createElement('div');
+    card.style.cssText = 'background:#0d2b16;border:1px solid #1e4d2b;border-radius:8px;overflow:hidden';
+
+    // Card header — clickable
+    const cardHead = document.createElement('div');
+    cardHead.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:#0f5c2e;cursor:pointer';
+    cardHead.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="background:#f0b429;color:#000;font-weight:900;font-size:.8rem;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center">${g}</span>
+        <span style="font-size:.82rem;font-weight:700">Group ${g}</span>
+      </div>
+      <span style="font-size:.72rem;color:#f0b429">${isOpen ? '▲' : '▼'}</span>`;
+    cardHead.onclick = () => { groupsExpanded[g] = !isOpen; renderKnockout(); };
+    card.appendChild(cardHead);
+
+    if (isOpen) {
+      // Team list with standings
+      const teamList = document.createElement('div');
+      teamList.style.cssText = 'padding:8px 0';
+      sorted.forEach((t, i) => {
+        const posColors = ['#f0b429,#000','#1a7a3f,#fff','#333,#aaa','#3a0808,#c0392b'];
+        const [bg, fg] = posColors[i].split(',');
+        const advancing = i < 2 ? '→ R32' : i===2 ? '? R32' : '✗';
+        const advColor = i < 2 ? '#2ecc71' : i===2 ? '#f0b429' : '#c0392b';
+        const isHL = highlightedTeam === t.team.name;
+        const row = document.createElement('div');
+        row.style.cssText = `display:flex;align-items:center;gap:6px;padding:5px 10px;cursor:pointer;${isHL?'background:#1a4d2a;':''}`;
+        row.innerHTML = `
+          <span style="background:${bg};color:${fg};font-size:.65rem;font-weight:700;width:16px;height:16px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</span>
+          ${t.team.crest ? `<img src="${t.team.crest}" style="width:16px;height:16px;object-fit:contain;flex-shrink:0" onerror="this.style.display='none'">` : ''}
+          <span style="flex:1;font-size:.75rem;font-weight:${isHL?700:500};color:${isHL?'#f0b429':'#f5f5f0'}">${t.team.name}</span>
+          <span style="font-size:.68rem;color:#8a9a8e">${t.pts}pts</span>
+          <span style="font-size:.65rem;font-weight:700;color:${advColor}">${advancing}</span>`;
+        row.onclick = () => { highlightedTeam = highlightedTeam===t.team.name?null:t.team.name; renderKnockout(); };
+        teamList.appendChild(row);
+      });
+      card.appendChild(teamList);
+    }
+    grid.appendChild(card);
+  });
+
+  groupDiv.appendChild(grid);
+  container.appendChild(groupDiv);
+
+  // ---- KO BRACKET (D3 SVG) ----
+  const stageOrder = ['LAST_32','LAST_16','QUARTER_FINALS','SEMI_FINALS','FINAL'];
+  const stageLabelsKO = {
+    'LAST_32':'Round of 32','LAST_16':'Round of 16',
+    'QUARTER_FINALS':'Quarter Finals','SEMI_FINALS':'Semi Finals','FINAL':'🏆 Final'
+  };
+  const stageMatches = {};
+  stageOrder.forEach(s => {
+    stageMatches[s] = allMatches.filter(m => m.stage===s).sort((a,b) => new Date(a.utcDate)-new Date(b.utcDate));
+  });
 
   const isMobile = window.innerWidth < 700;
   const NODE_W = isMobile ? 130 : 160;
   const NODE_H = 54;
-  const ROUND_GAP = isMobile ? 160 : 200; // horizontal gap between rounds
-  const MATCH_GAP = 14;
+  const ROUND_GAP = isMobile ? 155 : 195;
 
-  // Figure out max matches in any stage for height calc
   const maxMatches = Math.max(...stageOrder.map(s => stageMatches[s].length || 1));
-  const svgH = maxMatches * (NODE_H * 2 + MATCH_GAP) + 120;
+  const svgH = maxMatches * (NODE_H + 10) + 100;
   const svgW = stageOrder.length * ROUND_GAP + NODE_W + 40;
 
-  const svg = d3.select('#tree-container')
+  const svg = d3.select(container)
     .append('svg')
     .attr('width', svgW)
     .attr('height', svgH)
-    .style('font-family', 'Inter, sans-serif');
+    .style('font-family', 'Inter, sans-serif')
+    .style('display', 'block');
 
-  // Background
   svg.append('rect').attr('width', svgW).attr('height', svgH).attr('fill', '#0a3d1f');
 
-  // Round labels at top
+  // Round labels
   stageOrder.forEach((stage, ri) => {
     const cx = ri * ROUND_GAP + NODE_W/2 + 20;
-    svg.append('rect')
-      .attr('x', ri * ROUND_GAP + 20).attr('y', 8)
-      .attr('width', NODE_W).attr('height', 24)
-      .attr('rx', 4).attr('fill', '#000');
-    svg.append('text')
-      .attr('x', cx).attr('y', 24)
-      .attr('text-anchor', 'middle')
-      .attr('fill', '#f0b429')
-      .attr('font-size', isMobile ? 9 : 10)
-      .attr('font-weight', '700')
-      .attr('letter-spacing', '0.5')
-      .text(stageLabelsKO[stage] || stage);
+    svg.append('rect').attr('x', ri*ROUND_GAP+20).attr('y', 6).attr('width', NODE_W).attr('height', 22).attr('rx', 4).attr('fill', '#000');
+    svg.append('text').attr('x', cx).attr('y', 21).attr('text-anchor','middle').attr('fill','#f0b429')
+      .attr('font-size', isMobile?8:10).attr('font-weight','700').text(stageLabelsKO[stage]);
   });
 
-  // Draw matches per round
+  // Draw rounds
   stageOrder.forEach((stage, ri) => {
     const matches = stageMatches[stage];
     if (!matches.length) return;
-
-    const totalH = svgH - 60;
+    const totalH = svgH - 50;
     const slotH = totalH / matches.length;
     const x = ri * ROUND_GAP + 20;
 
     matches.forEach((m, mi) => {
-      const slotMid = 50 + mi * slotH + slotH/2;
-      const yHome = slotMid - NODE_H/2 - 1;
+      const slotMid = 36 + mi * slotH + slotH/2;
+      const yHome = slotMid - NODE_H/2;
       const yAway = slotMid + 1;
       const winner = getKOWinner(m);
       const bd = toBDTime(m.utcDate);
 
-      const drawTeam = (team, y, isWinner, isLoser) => {
+      const drawTeam = (team, y) => {
         const name = team?.name || 'TBD';
-        const crest = team?.crest || null;
         const isTBD = !team?.name;
-        const isHighlighted = highlightedTeam && name === highlightedTeam;
+        const isHL = !isTBD && highlightedTeam === name;
+        const isWin = winner?.name === name;
+        const isLose = !isTBD && winner && winner.name !== name;
 
-        let fillColor = '#0d2b16';
-        let borderColor = '#1e4d2b';
-        let textColor = '#f5f5f0';
+        let fill = '#0d2b16', stroke = '#1e4d2b', textCol = '#f5f5f0';
+        if (isHL)   { fill='#1a4d2a'; stroke='#f0b429'; textCol='#f0b429'; }
+        else if (isWin)  { fill='#0f4d22'; stroke='#2ecc71'; textCol='#2ecc71'; }
+        else if (isLose) { fill='#1a0808'; stroke='#2b0d0d'; textCol='#555'; }
+        else if (isTBD)  { textCol='#444'; }
 
-        if (isHighlighted) { fillColor = '#1a4d2a'; borderColor = '#f0b429'; textColor = '#f0b429'; }
-        else if (isWinner) { fillColor = '#0f4d22'; borderColor = '#2ecc71'; textColor = '#2ecc71'; }
-        else if (isLoser) { fillColor = '#1a0808'; borderColor = '#2b0d0d'; textColor = '#555'; }
-        else if (isTBD) { textColor = '#444'; }
+        const h = NODE_H/2 - 2;
+        const g = svg.append('g').style('cursor', isTBD?'default':'pointer')
+          .on('click', () => { if(isTBD) return; highlightedTeam=highlightedTeam===name?null:name; renderKnockout(); });
 
-        const g = svg.append('g')
-          .style('cursor', isTBD ? 'default' : 'pointer')
-          .on('click', () => {
-            if (isTBD) return;
-            highlightedTeam = highlightedTeam === name ? null : name;
-            renderKnockout();
-          });
+        g.append('rect').attr('x',x).attr('y',y).attr('width',NODE_W).attr('height',h)
+          .attr('rx',3).attr('fill',fill).attr('stroke',stroke).attr('stroke-width',isHL||isWin?1.5:1);
 
-        g.append('rect')
-          .attr('x', x).attr('y', y)
-          .attr('width', NODE_W).attr('height', NODE_H/2 - 1)
-          .attr('rx', isWinner ? 4 : 2)
-          .attr('fill', fillColor)
-          .attr('stroke', borderColor)
-          .attr('stroke-width', isHighlighted || isWinner ? 1.5 : 1);
-
-        if (crest && !isTBD) {
-          g.append('image')
-            .attr('href', crest)
-            .attr('x', x + 6).attr('y', y + 4)
-            .attr('width', 18).attr('height', 18);
+        if (team?.crest && !isTBD) {
+          g.append('image').attr('href',team.crest).attr('x',x+5).attr('y',y+3).attr('width',16).attr('height',16);
         }
-
-        g.append('text')
-          .attr('x', x + (crest ? 28 : 8)).attr('y', y + 16)
-          .attr('fill', textColor)
-          .attr('font-size', isMobile ? 9 : 10)
-          .attr('font-weight', isWinner || isHighlighted ? '700' : '500')
-          .text(isTBD ? 'Awaiting...' : (name.length > 16 ? name.slice(0,15)+'…' : name));
+        g.append('text').attr('x',x+(team?.crest&&!isTBD?25:7)).attr('y',y+14)
+          .attr('fill',textCol).attr('font-size',isMobile?8.5:10).attr('font-weight',isWin||isHL?700:500)
+          .text(isTBD?'Awaiting…':(name.length>17?name.slice(0,16)+'…':name));
 
         if (!isTBD) {
-          g.append('text')
-            .attr('x', x + 6).attr('y', y + 28)
-            .attr('fill', '#8a9a8e')
-            .attr('font-size', 8)
+          g.append('text').attr('x',x+5).attr('y',y+25).attr('fill','#666').attr('font-size',7)
             .text(`${bd.date} • ${bd.time}`);
         }
       };
 
-      const ht = m.homeTeam, at = m.awayTeam;
-      const win = getKOWinner(m);
-      drawTeam(ht, yHome, win?.name===ht?.name, win && win.name!==ht?.name);
-      drawTeam(at, yAway, win?.name===at?.name, win && win.name!==at?.name);
+      drawTeam(m.homeTeam, yHome);
+      drawTeam(m.awayTeam, yAway);
 
-      // Divider line between two teams
-      svg.append('line')
-        .attr('x1', x).attr('x2', x + NODE_W)
-        .attr('y1', slotMid).attr('y2', slotMid)
-        .attr('stroke', '#1e4d2b').attr('stroke-width', 1);
+      svg.append('line').attr('x1',x).attr('x2',x+NODE_W).attr('y1',slotMid).attr('y2',slotMid)
+        .attr('stroke','#1e4d2b').attr('stroke-width',1);
 
-      // Connector line to next round
-      if (ri < stageOrder.length - 1) {
-        const nextStage = stageOrder[ri+1];
-        const nextMatches = stageMatches[nextStage];
-        if (nextMatches.length) {
-          const nextSlotH = totalH / nextMatches.length;
-          const nextMi = Math.floor(mi / 2);
-          const nextSlotMid = 50 + nextMi * nextSlotH + nextSlotH/2;
-          const x2 = (ri+1) * ROUND_GAP + 20;
+      // Connector to next round
+      if (ri < stageOrder.length-1) {
+        const nxt = stageMatches[stageOrder[ri+1]];
+        if (nxt.length) {
+          const nSlotH = totalH / nxt.length;
+          const nMid = 36 + Math.floor(mi/2)*nSlotH + nSlotH/2;
+          const x2 = (ri+1)*ROUND_GAP+20;
+          const winTeam = getKOWinner(m);
+          const isHLPath = winTeam && highlightedTeam === winTeam.name;
           svg.append('path')
-            .attr('d', `M${x+NODE_W},${slotMid} C${x+NODE_W+ROUND_GAP*0.4},${slotMid} ${x2-ROUND_GAP*0.4},${nextSlotMid} ${x2},${nextSlotMid}`)
-            .attr('fill', 'none')
-            .attr('stroke', '#1e4d2b')
-            .attr('stroke-width', 1.5);
+            .attr('d',`M${x+NODE_W},${slotMid} C${x+NODE_W+ROUND_GAP*0.45},${slotMid} ${x2-ROUND_GAP*0.45},${nMid} ${x2},${nMid}`)
+            .attr('fill','none')
+            .attr('stroke', isHLPath ? '#f0b429' : '#1e4d2b')
+            .attr('stroke-width', isHLPath ? 2 : 1.5);
         }
       }
     });
   });
-
-  document.getElementById('ko-loading').style.display = 'none';
-  document.getElementById('ko-content').style.display = 'block';
 
   document.getElementById('ko-loading').style.display = 'none';
   document.getElementById('ko-content').style.display = 'block';
