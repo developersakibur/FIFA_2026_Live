@@ -529,7 +529,10 @@ function renderKnockout() {
   };
   const stageMatches = {};
   stageOrder.forEach(s => {
-    stageMatches[s] = allMatches.filter(m => m.stage===s).sort((a,b) => new Date(a.utcDate)-new Date(b.utcDate));
+    // Sort by match id, not kickoff time — id follows the official bracket
+    // creation order, while utcDate can be reshuffled by broadcast scheduling,
+    // which breaks the Math.floor(mi/2) pairing used for connector lines below.
+    stageMatches[s] = allMatches.filter(m => m.stage===s).sort((a,b) => a.id-b.id);
   });
 
   const isMobile = window.innerWidth < 700;
